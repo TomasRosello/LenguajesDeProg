@@ -1,124 +1,117 @@
-package MIPS;
 import java_cup.runtime.*;
 import java.io.*;
-import java.util.*; 
+import java.util.*;
 
-action code {: 
+action code {:
 :};
+
 parser code {:
-ArrayList letra = new ArrayList <String>();
-HashTable numero = new HashTable <int><String>();
+    const int MAX = 15;
+    int contador = 0;
+    boolean error = false;
+    Vector<int> constantes = new Vector<int>();
+    Vector<String> variables = new Vector<String>();
 
-int valor = 0;
+    public static void main(String[] arg){
+        if (arg.length!=1)
+          System.out.println("Debe dar el nombre del fichero de entrada como parametro");
+        else
+        {
+             String fileName=arg[0];
+             AnalizadorLexico miAnalizadorLexico=null;
+             parser parserObj=null;
+             Symbol x=null;
 
-public static void main(String[] arg){
-	if (arg.length!=1)
-		System.out.println("Debe dar el nombre del fichero de entrada como parámetro");
-	else
-	{
-		String fileName=arg[0];
-		LexicalAnalyzerMIPS miAnalizadorLexico=null;
-		parser parserObj=null;
-		Symbol x=null;
+             try{
+               miAnalizadorLexico =
+                 new AnalizadorLexico(new InputStreamReader(new FileInputStream(fileName)));
 
-		try{
-			miAnalizadorLexico =
-			new LexicalAnalyzerMIPS(new InputStreamReader(new FileInputStream(fileName)));
-
-		} catch (IOException e){
-			System.err.println("Fichero de entrada "+fileName+" no encontrado");
-			System.exit(0);
-		}
-		try{
-			parserObj = new parser(miAnalizadorLexico);
-			x=parserObj.parse();
-			} catch (Exception e) {
-			System.err.println("No se pudo inicializar el compilador");
-			System.exit(0);
-			}
-		} // end else
-}
+             } catch (IOException e){
+               System.err.println("Fichero de entrada "+fileName+" no encontrado");
+               System.exit(0);
+             }
+             try{
+                parserObj = new parser(miAnalizadorLexico);
+                parserObj.parse();
+             } catch (Exception e) {
+                e.printStackTrace();
+                System.exit(0);
+             } 
+          } // end else
+    }
 :};
-/*
-terminal LEER, …;
-precedence left …;
-precedence left …;
-precedence left …;
-*/
 
-terminal integer NUMERO;
-terminal string VARIABLE, SUMA, RESTA, MULTIPLICACION, DIVISION, ASIGNACION;
-terminal PUNTO_COMA;
+terminal PTOYCOMA;
+terminal String LEER, VARIABLE, MOSTRAR, ASIGNACION, ABROCOMENTARIO, CIERROCOMENTARIO, COMENTARIOLINEA, NUMERO, SUMA, RESTA, MULTIPLICACION, DIVISION;
+non terminal String programa, lista_instrucciones, instruccion, operando, operador;
 
-non terminal String lista_instrucciones, instruccion, lectura, muestra, programa, signo, operacion, operador;
+/* Gramatica */
+start with programa;
 
+programa ::= lista_instrucciones:li {: System.out.println(li); :};
 
+lista_instrucciones ::= instruccion | instruccion lista_instrucciones;
 
-programa ::= lista_instrucciones{:
-                                   System.out.println("palabras reservadas para variables:");
-                                   for(String s : letra){
-                                                            System.out.println("var_" + s + "   #palabra reservada para la veriable " + s);
-                                                        }
-                                   System.out.println("palabras reservadas para numeros");
-                                   for(int s : numero)
-                                                        {
-                                                            System.out.println("content" + s + " #palabra reservada para la constante "+ s);
-                                                        }
-                                               
-                                   :}
+instruccion ::= LEER VARIABLE:v PTOYCOMA {:
+                    if(!ht.containsKey(v) && contador <= MAX){
+                        ht.put(v,"M"+contador);
+                        contador++;
+						
+                    System.out.println("leer " + v + "\n"
+                    + "     #obtenerel valor de " + v + "\n"
+                    + "     li      $v0, 5          #carga la llamda de lectura en v0\n"
+                    + "     syscall                 #hacer la llmada al sistema\n"
+                    + "     sw      $v0,var_" + v + "    #stoe in memory\n");
+                    }:}
+                |
+                MOSTRAR VARIABLE:v PTOYCOMA {:
+                    if(!ht.contains(v)){
+                        System.out.println("Error!: No se ha definido la variable " + v + " en linea " + (vleft+1) + " columna " + (vright+1));}
+                    else{
+                        System.out.println("     #Mostrar el valor de " + v + " en la consola\n" 
+                        + "     lw      $a0, var_" + v + "   # load in a0\n" 
+                        + "     li      $v0, 1          # cargar la llamada de escritura en v0\n"
+                        + "     syscall                 # hacer la llamada al sistema");}
+                :}
+                |
+                VARIABLE:v ASIGNACION operando:va operador:op operando:var PTOYCOMA {:
+                        System.out.println("	lw	$t1, va	#primer operando en $t1"
+                        + "	lw	$t2, var	#segundo operador en $t2"
+                        + 	op	" $t0,$t1,$t2	#aritmetic operation" 	
+                        + "	sw 	$t0, var_" + v);
+					
+                    if(!ht.contains(v))
+                        ht.addElement(v);
+                    else
+                        System.out.println("Error! :Variable ya definida");
+                
+                :}
+                |
+                ABROCOMENTARIO CIERROCOMENTARIO {:
+                    System.out.println("ABRO COMENTARIO");
+                    System.out.println("CIERRO COMENTARIO");
+                :}
+                |
+                COMENTARIOLINEA {: :}
+                |
+                error PTOYCOMA:p
+                {: 
+                        System.out.println("Error en linea: " + (pleft+1));
+                :};
 
-lista_instrucciones ::= instruccion:i PUNTO_COMA 
-                        | 
-                        instruccion:i PUNTO_COMA  lista_instrucciones;
+operando ::= VARIABLE:v {: 
+                if(!ht.contains(v))
+                    System.out.println("Error!: No se ha definido la variable " + v + " en linea " + (vleft+1) + " columna " + (vright+1));
+                else
+                    RESULT = v;
+            :} "#" + n; :};
 
-instruccion ::= LEER VARIABLE:v PUNTO_COMA 
-				{:
-					letra.add(v)
-					System.out.println("leer " + v + "\n"
-						+ "     #obtenerel valor de " + v + "\n"
-						+ "     li      $v0, 5          #carga la llamda de lectura en v0\n"
-						+ "     syscall                 #hacer la llmada al sistema\n"
-						+ "     sw      $v0,var_" + v + "    #stoe in memory\n");
-				:} 
-				| 
-				MOSTRAR VARIABLE:v PUNTO_COMA 
-				{:	
-					System.out.println("     #Mostrar el valor de " + v + " en la consola\n" 
-						+ "     lw      $a0, var_" + v + "   # load in a0\n" 
-						+ "     li      $v0, 1          # cargar la llamada de escritura en v0\n"
-						+ "     syscall                 # hacer la llamada al sistema");
-				:}				
-				|
-				operacion PUNTO_COMA;
-
-
-operacion ::= VARIABLE:v ASIGNACION operando:va operador:op operando:var;
-	{System.out.println("	lw	$t1, va	#primer operando en $t1"+
-	"	lw	$t2, var	#segundo operador en $t2"+
-	"	op	$t0,$t1,$t2	#aritmetic operation" +	
-	"	sw 	$t0, var_" + v);}
-
-operando::= NUMERO:n
-		{:
-                    if !(numero.contains(n){numero.put(n, valor); 
-                    valor = valor+4;})
-		:}
-		|
-		LETRA:l
-		{:
-			if (letra.contains(l){resoult = "var_"+l})		
-		:}
-
-operador ::= SUMA{:result = "add";:}
-		|
-		RESTA{:result = "subb";:}
-		|
-		MULT{:result = "mul";:}
-		|
-		DIV{:RESULT = "div";:}
-
-
-
-
-
-
+            | 
+            NUMERO:n {: RESULT = 
+operador ::= SUMA {: Result = "ADD";:} 
+            | 
+            RESTA {:Result = "SUB"; :}
+            | 
+            DIVISION {: Result = "DIV"; :}
+            | 
+            MULTIPLICACION {: Result = "MUL"; :};
