@@ -42,15 +42,15 @@ parser code {:
 :};
 
 terminal PTOYCOMA;
-terminal String LEER, VARIABLE, MOSTRAR, ASIGNACION, ABROCOMENTARIO, CIERROCOMENTARIO, COMENTARIOLINEA, NUMERO, SUMA, RESTA, MULTIPLICACION, DIVISION;
-non terminal String programa, lista_instrucciones, instruccion, operando, operador;
+terminal String LEER, VARIABLE, MOSTRAR, ASIGNACION, ABROCOMENTARIO, CIERROCOMENTARIO, COMENTARIOLINEA, NUMERO, SUMA, RESTA, MULTIPLICACION, DIVISION, CIERREPAR, ABREPAR;
+non terminal String programa, lista_instrucciones, instruccion, operando, operador, operacion;
 
 /* Gramatica */
 start with programa;
 
 programa ::= lista_instrucciones:li {: System.out.println(li); :};
 
-lista_instrucciones ::= instruccion | instruccion lista_instrucciones;
+lista_instrucciones ::= instruccion:i {:RESULT = i;:} | instruccion lista_instrucciones{: li = li+i; RESULT = i; :};
 
 instruccion ::= LEER VARIABLE:v PTOYCOMA {:
                     if(!ht.containsKey(v) && contador <= MAX){
@@ -74,18 +74,7 @@ instruccion ::= LEER VARIABLE:v PTOYCOMA {:
                         + "     syscall                 # hacer la llamada al sistema");}
                 :}
                 |
-                VARIABLE:v ASIGNACION operando:va operador:op operando:var PTOYCOMA {:
-                        System.out.println("	lw	$t1, va	#primer operando en $t1"
-                        + "	lw	$t2, var	#segundo operador en $t2"
-                        + 	op	" $t0,$t1,$t2	#aritmetic operation" 	
-                        + "	sw 	$t0, var_" + v);
-					
-                    if(!ht.contains(v))
-                        ht.addElement(v);
-                    else
-                        System.out.println("Error! :Variable ya definida");
-                
-                :}
+                operacion:o {:RESULT = o;:}
                 |
                 ABROCOMENTARIO CIERROCOMENTARIO {:
                     System.out.println("ABRO COMENTARIO");
@@ -99,15 +88,28 @@ instruccion ::= LEER VARIABLE:v PTOYCOMA {:
                         System.out.println("Error en linea: " + (pleft+1));
                 :};
 
+operacion ::= VARIABLE:v ASIGNACION operando:va operador:op operando:var PTOYCOMA {:
+                        System.out.println("	lw	$t1, va	#primer operando en $t1"
+                        + "	lw	$t2, var	#segundo operador en $t2"
+                        + 	op	" $t0,$t1,$t2	#aritmetic operation" 	
+                        + "	sw 	$t0, var_" + v);
+					
+                    if(!ht.contains(v))
+                        ht.addElement(v);
+                    else
+                        System.out.println("Error! :Variable ya definida");
+                :}
+                |
+                ABREPAR operacion:o CIERREPAR {:RESULT = o;:};
+
 operando ::= VARIABLE:v {: 
                 if(!ht.contains(v))
                     System.out.println("Error!: No se ha definido la variable " + v + " en linea " + (vleft+1) + " columna " + (vright+1));
                 else
-                    RESULT = v;
-            :} "#" + n; :};
-
+                    RESULT = v;:}
             | 
-            NUMERO:n {: RESULT = 
+            NUMERO:n {: RESULT = "#" + n;:};
+
 operador ::= SUMA {: Result = "ADD";:} 
             | 
             RESTA {:Result = "SUB"; :}
